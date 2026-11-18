@@ -29,6 +29,24 @@
   const originalLocation = document.createComment('Ubicación original del editor Portrayer');
   app?.parentNode?.insertBefore(originalLocation, app);
 
+  // Movemos también el editor de Ficha de estrellas al mismo diálogo de
+  // búsqueda. No lo clonamos ni duplicamos los listeners de sus controles.
+  const starEditor = document.querySelector('#px-stars-view .px-stars-layout');
+  const starLocation = document.createComment('Ubicación original de Ficha de estrellas');
+  starEditor?.parentNode?.insertBefore(starLocation, starEditor);
+
+  function mountStarEditorInSearch() {
+    const host = $('px-editor-target');
+    restoreEditor();
+    if (host && starEditor && starEditor.parentNode !== host) host.appendChild(starEditor);
+  }
+
+  function restoreStarEditor() {
+    if (starEditor && starLocation.parentNode && starEditor.parentNode !== starLocation.parentNode) {
+      starLocation.parentNode.insertBefore(starEditor, starLocation.nextSibling);
+    }
+  }
+
   function mountEditorInSearch() {
     const host = $('px-editor-target');
     if (app && host && app.parentNode !== host) host.appendChild(app);
@@ -311,13 +329,12 @@
     // no se reinician nombre, potencia, clase ni otros valores ya editados.
     if (normalized(control.value) !== normalized(value)) setNativeValue(control, value);
     selectedValue = entry.value || entry.name;
-    showEditor(entry.name);
-    // La nueva pestaña escucha esta señal y dibuja su propia placa de estrellas.
+    const isStars = document.body.classList.contains('px-stars-mode');
+    if (isStars) $('px-inline-name').textContent = entry.name + ' · Ficha de estrellas';
+    else showEditor(entry.name);
+    // El modo de estrellas reacciona usando las mismas imágenes del selector nativo.
     document.dispatchEvent(new CustomEvent('px:champion-selected', { detail: { name: entry.name, value } }));
-    // Tras elegir un campeón en la pestaña de estrellas volvemos al editor nuevo.
-    if (document.body.classList.contains('px-stars-mode') && dialog.open) {
-      dialog.close();
-    }
+    // En ambas pestañas el buscador permanece abierto y el editor es interactivo.
     // Señal visual de qué personaje está seleccionado actualmente.
     for (const item of results.querySelectorAll('.px-champ')) {
       const active = normalized(item.querySelector('.px-champ__name')?.textContent) === normalized(entry.name);
@@ -329,7 +346,15 @@
 
   async function openPicker() {
     if (!dialog.open) dialog.showModal();
-    mountEditorInSearch();
+    if (document.body.classList.contains('px-stars-mode')) {
+      mountStarEditorInSearch();
+      $('px-inline-name').textContent = ($('px-stars-character')?.textContent || 'Campeón') + ' · Ficha de estrellas';
+      sourceText.textContent = 'Busca un campeón y edita su ficha de estrellas aquí mismo, como en el Retrato clásico.';
+    } else {
+      restoreStarEditor();
+      mountEditorInSearch();
+      sourceText.textContent = 'Busca un campeón: su ficha aparecerá aquí mismo, lista para editar.';
+    }
     search.focus({ preventScroll: true });
     if (!catalog.length) {
       meta.textContent = 'Cargando biblioteca de campeones…';
@@ -362,7 +387,8 @@
   $('px-picker-close').addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
   dialog.addEventListener('close', () => {
-    // Cuando se cierra el buscador se devuelve el editor a su lugar sin recrearlo.
+    // Devolvemos cada editor a su pestaña sin desmontar sus canvas ni listeners.
+    restoreStarEditor();
     restoreEditor();
     if (document.body.classList.contains('px-stars-mode')) return;
     if (document.querySelector('.px-main.is-editing')) {

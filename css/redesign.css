@@ -573,17 +573,41 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .px-stars-download:hover { filter:brightness(1.06); }
 .px-stars-note { color:#889ab2; font-size:11px; text-align:center; line-height:1.55; margin:0; }
 .px-stars-note code { color:#e8bf70; }
-/* Reutilizamos exactamente la biblioteca de la página original para este modo. */
-.px-stars-mode .px-dialog__workspace { display:block; }
-.px-stars-mode .px-dialog__sidebar { height:100%; border-right:0; }
-.px-stars-mode .px-dialog__studio { display:none !important; }
-.px-stars-mode .px-dialog__list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-content:start; }
-.px-stars-mode .px-champ { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:125px; }
-.px-stars-mode .px-champ__name { text-align:center; }
+/* El MISMO buscador, con el editor de la pestaña activa a su derecha. */
+.px-stars-mode .px-dialog__workspace {
+  display: grid;
+  grid-template-columns: minmax(190px,240px) minmax(0,1fr);
+}
+.px-stars-mode .px-dialog__sidebar { height:auto; border-right:1px solid #324059; }
+.px-stars-mode .px-dialog__studio { display:flex !important; }
+.px-stars-mode .px-dialog__list { display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; }
+.px-stars-mode .px-champ { display:grid; grid-template-columns:55px 1fr; min-height:76px; }
+.px-stars-mode .px-champ__name { text-align:left; }
+.px-stars-mode .px-dialog__app-host .px-stars-layout {
+  width:100%;
+  grid-template-columns: minmax(0,.9fr) minmax(0,1fr);
+  gap:14px;
+}
+.px-stars-mode .px-dialog__app-host .px-stars-preview-pane,
+.px-stars-mode .px-dialog__app-host .px-stars-controls { padding:14px; }
+.px-stars-mode .px-dialog__studio-title h3 { font-size:21px; }
+@media (max-width:1120px) {
+  .px-stars-mode .px-dialog__app-host .px-stars-layout { grid-template-columns:minmax(0,1fr); }
+  .px-stars-mode .px-dialog__app-host #px-stars-canvas { width:min(100%,390px); }
+}
 @media (max-width:930px) {
   .px-stars-layout { grid-template-columns:minmax(0,1fr); }
   .px-stars-preview-pane { padding:18px; }
   .px-stars-controls { padding:20px; }
+}
+@media (max-width:700px) {
+  .px-stars-mode .px-dialog__workspace { display:flex; flex-direction:column; overflow:auto; }
+  .px-stars-mode .px-dialog__sidebar { border-right:0; border-bottom:1px solid #35425a; flex:0 0 auto; }
+  .px-stars-mode .px-dialog__list {
+    flex:0 0 auto; flex-direction:row; max-height:120px; overflow-x:auto; overflow-y:hidden;
+  }
+  .px-stars-mode .px-champ { grid-template-columns:45px 1fr; min-width:150px; max-width:180px; }
+  .px-stars-mode .px-dialog__studio { overflow:visible; flex:0 0 auto; }
 }
 @media (max-width:620px) {
   .px-mode-tabs { width:100%; }
@@ -592,6 +616,4 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .px-stars-heading .px-button-picker { align-self:flex-start; }
   .px-stars-controls { padding:16px; gap:13px; }
   .px-stars-fields-2 { grid-template-columns:1fr; }
-  .px-stars-mode .px-dialog__list { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
-.px-stars-mode .px-dialog__list { max-height:none; overflow-y:auto; overflow-x:hidden; }

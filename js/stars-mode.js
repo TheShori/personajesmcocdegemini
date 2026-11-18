@@ -28,7 +28,8 @@
     champion: '',
     assetImage: null,
     frameCache: new Map(),
-    lastPortraitPresent: false
+    lastPortraitPresent: false,
+    classicalSettings: null
   };
   const nativeValueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
 
@@ -73,6 +74,17 @@
     return Number(choices.frame.value === 'auto' ? choices.count.value : choices.frame.value);
   }
 
+  // En el Portrayer original, Ascensión+ utiliza el marco antiguo 7★,
+  // que es distinto del marco 7★ morado actual.
+  function ascensionPlusEnabled() {
+    return choices.asc.checked && Number(choices.count.value) === 7 && selectedFrameTier() === 7;
+  }
+
+  function updateAscensionControls() {
+    stars.classList.toggle('px-stars-no-asc', !ascensionPlusEnabled());
+    choices.level.disabled = !ascensionPlusEnabled();
+  }
+
   function syncFrameToOriginal() {
     // Se sigue actualizando el tier nativo, pero el render de la ficha de estrellas
     // NO usa el frame canvas original para evitar el 7★ de ascensión+.
@@ -103,7 +115,11 @@
   }
 
   function frameAssetPath(tier) {
-    return `./assets/champion-frame-${tier}.png`;
+    // Recurso ORIGINAL usado por el retrato clásico al activar Ascensión+.
+    // La ficha de estrellas no hereda el checkbox de la otra pestaña.
+    return tier === 7 && ascensionPlusEnabled()
+      ? './assets/old_champion-frame-7.png'
+      : `./assets/champion-frame-${tier}.png`;
   }
 
   function frameImage(tier) {
@@ -171,9 +187,9 @@
     ctx.rect(0, 0, 500, 320);
     ctx.clip();
 
-    // Marco SIEMPRE desde assets/champion-frame-X.png (7★ morado original).
+    // Normal: champion-frame-X.png; Ascensión+: old_champion-frame-7.png.
     if (fallback) {
-      const x = tier === 7 ? 74 : 78;
+      const x = tier === 7 && !ascensionPlusEnabled() ? 74 : 78;
       ctx.drawImage(fallback, x, 70);
     }
     if (hasPortrait) ctx.drawImage(portrait, 0, 0, 500, 500);
@@ -392,7 +408,7 @@
   }
 
   function drawBadge() {
-    if (!choices.asc.checked) return;
+    if (!ascensionPlusEnabled()) return;
     const img = state.assetImage;
     if (!img) return;
     ctx.save();
@@ -436,6 +452,21 @@
   function showMode(newMode) {
     const isStars = newMode === 'stars';
     if (el('px-picker')?.open) el('px-picker').close();
+    if (isStars && !state.active) {
+      // Al volver a Retrato clásico, recuperamos sus ajustes de rareza y duplicado.
+      state.classicalSettings = {
+        tier: nativeTierInput()?.value,
+        duped: nativeDupedInput()?.checked
+      };
+    }
+    if (!isStars && state.active && state.classicalSettings) {
+      if (state.classicalSettings.tier != null) {
+        changeNativeInput(nativeTierInput(), state.classicalSettings.tier);
+      }
+      if (state.classicalSettings.duped != null) {
+        changeNativeInput(nativeDupedInput(), state.classicalSettings.duped, 'checked');
+      }
+    }
     state.active = isStars;
     document.body.classList.toggle('px-stars-mode', isStars);
     stars.hidden = !isStars;
@@ -448,6 +479,7 @@
       if (!state.champion) setChampionName(championInput()?.value || '');
       syncFrameToOriginal();
       syncDupedToOriginal();
+      updateAscensionControls();
       scheduleDraw();
     }
   }
@@ -459,6 +491,19 @@
 
   async function download() {
     // La exportación debe salir SIN fondo, en PNG transparente.
+    // Espera a que se haya cargado el marco seleccionado (normal / Ascensión+).
+    const path = frameAssetPath(selectedFrameTier());
+    if (!state.frameCache.get(path)) {
+      frameImage(selectedFrameTier());
+      const started = Date.now();
+      while (state.frameCache.get(path) === null && Date.now() - started < 4000) {
+        await new Promise(resolve => setTimeout(resolve, 80));
+      }
+    }
+    if (!state.frameCache.get(path)) {
+      window.alert('No se pudo cargar el marco original desde assets/. Comprueba que exista: ' + path);
+      return;
+    }
     const previousBg = choices.background.value;
     choices.background.value = 'transparent';
     draw();
@@ -496,12 +541,27 @@
   el('px-stars-change').addEventListener('click', openChampionSearch);
   el('px-stars-download').addEventListener('click', () => { void download(); });
 
-  choices.count.addEventListener('change', syncFrameToOriginal);
-  choices.frame.addEventListener('change', syncFrameToOriginal);
+  choices.count.addEventListener('change', () => {
+    // Ascensión+ solo corresponde al marco de 7 estrellas.
+    if (Number(choices.count.value) !== 7) choices.asc.checked = false;
+    updateAscensionControls();
+    syncFrameToOriginal();
+  });
+  choices.frame.addEventListener('change', () => {
+    if (selectedFrameTier() !== 7) choices.asc.checked = false;
+    updateAscensionControls();
+    syncFrameToOriginal();
+  });
   choices.duped.addEventListener('change', syncDupedToOriginal);
   choices.asc.addEventListener('change', () => {
-    stars.classList.toggle('px-stars-no-asc', !choices.asc.checked);
-    scheduleDraw();
+    if (choices.asc.checked) {
+      // Igual que en Retrato clásico: Ascensión+ implica marco especial 7★
+      // y emblema dorado con el nivel elegido.
+      choices.count.value = '7';
+      choices.frame.value = 'auto';
+    }
+    updateAscensionControls();
+    syncFrameToOriginal();
   });
   choices.level.addEventListener('change', scheduleDraw);
   choices.background.addEventListener('change', scheduleDraw);
@@ -514,6 +574,7 @@
 
   // La exportación final debe ser transparente por defecto.
   if (choices.background) choices.background.value = 'transparent';
+  updateAscensionControls();
 
   window.setInterval(() => { if (state.active && !document.hidden) draw(); }, 650);
   loadBadge();

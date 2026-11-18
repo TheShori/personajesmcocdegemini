@@ -54,6 +54,18 @@
       <button id="px-step-export" class="px-step" type="button"><span>03</span> Descarga tu PNG</button>
     </nav>
 
+    <!-- Vista de edición: se muestra al seleccionar cualquier campeón. -->
+    <section id="px-editing-bar" class="px-editing-bar" aria-label="Campeón en edición" hidden>
+      <div class="px-editing-bar__details">
+        <span class="px-editing-bar__tag">EDITOR DE RETRATOS</span>
+        <strong id="px-editing-name">Campeón seleccionado</strong>
+        <span>Personaliza su ficha y descarga el PNG cuando esté listo.</span>
+      </div>
+      <button id="px-change-champion" class="px-editing-bar__change" type="button">
+        <span aria-hidden="true">⌕</span> Cambiar campeón
+      </button>
+    </section>
+
     <!-- ¡IMPORTANTE! El motor compilado original monta la aplicación aquí. -->
     <div id="app"></div>
 
@@ -75,7 +87,7 @@
     </label>
     <p id="px-picker-meta" class="px-dialog__meta" role="status" aria-live="polite"></p>
     <div id="px-picker-results" class="px-dialog__list" role="list"></div>
-    <p class="px-dialog__help">La selección se enviará al campo original del editor. Si falta un personaje, también puedes elegirlo desde el selector de la página.</p>
+    <p class="px-dialog__help">Haz clic en un campeón para abrir directamente su editor. Se siguen usando los retratos y marcos originales.</p>
   </dialog>
 
   <!-- Antes de que se ejecute el motor type=module, registramos la compatibilidad heredada. -->

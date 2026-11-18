@@ -227,26 +227,58 @@
     element.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  /**
+   * Cambiar de la biblioteca a la edición sin modificar el renderizador Vue.
+   * Evitamos enfocar el campo de nombre en móviles para no abrir el teclado.
+   */
+  function showEditor(championName) {
+    const main = document.querySelector('.px-main');
+    const bar = $('px-editing-bar');
+    if (!main || !bar) return;
+
+    $('px-editing-name').textContent = championName;
+    bar.hidden = false;
+    main.classList.add('is-editing');
+
+    // El modal deja de bloquear el desplazamiento antes de iniciar la transición.
+    if (dialog.open) dialog.close();
+    window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const top = Math.max(0, bar.getBoundingClientRect().top + window.scrollY - 14);
+      window.scrollTo({ top, behavior: reduceMotion ? 'instant' : 'smooth' });
+    });
+  }
+
+  function nativeCandidateValue(control, entry) {
+    // Evita enviar un nombre humanizado diferente al esperado por el motor.
+    const options = control.tagName === 'SELECT'
+      ? [...control.options]
+      : control.list ? [...control.list.options] : [...(document.querySelector('#app datalist')?.options || [])];
+    const wanted = [entry.value, entry.name].filter(Boolean).map(normalized);
+    const match = options.find((option) =>
+      wanted.includes(normalized(option.value)) ||
+      wanted.includes(normalized(option.label || option.textContent)));
+    if (match) return match.value;
+    return control.tagName === 'SELECT' ? null : (entry.source === 'native' && entry.value ? entry.value : entry.name);
+  }
+
   function pickChampion(entry) {
     const control = findChampionControl();
     if (!control) {
-      sourceText.textContent = 'No se ha encontrado el campo de selección de la app original. Puedes utilizarlo al volver al editor.';
-      dialog.close();
+      // No se anuncia una selección que el editor original no ha recibido.
+      showMessage('Editor no disponible', 'El selector original todavía no está listo. Recarga la página y vuelve a intentarlo.');
       return;
     }
 
-    if (control.tagName === 'SELECT') {
-      const match = [...control.options].find((option) =>
-        normalized(option.value) === normalized(entry.value || entry.name) ||
-        normalized(option.textContent) === normalized(entry.name));
-      if (match) setNativeValue(control, match.value);
-      else { dialog.close(); control.focus(); return; }
-    } else {
-      // Usa eventos reales de input/change para que Vue actualice el retrato.
-      setNativeValue(control, entry.value && entry.source === 'native' ? entry.value : entry.name);
+    const value = nativeCandidateValue(control, entry);
+    if (!value) {
+      showMessage('Campeón no disponible', 'Ese personaje no aparece en las opciones originales. Elige otro campeón.');
+      return;
     }
-    dialog.close();
-    control.scrollIntoView({ block: 'center', behavior: 'smooth' });
+
+    // El compilado Vue escucha input/change; el setter nativo preserva su reactividad.
+    setNativeValue(control, value);
+    showEditor(entry.name);
   }
 
   async function openPicker() {
@@ -279,6 +311,7 @@
   }
 
   $('px-open-picker').addEventListener('click', () => { void openPicker(); });
+  $('px-change-champion').addEventListener('click', () => { void openPicker(); });
   $('px-picker-close').addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
   search.addEventListener('input', () => {

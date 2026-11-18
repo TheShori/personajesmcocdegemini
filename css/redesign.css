@@ -308,3 +308,67 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   #preview { width: 100% !important; height: auto !important; aspect-ratio: 1 / 1; }
   #preview canvas { width: 100% !important; height: 100% !important; }
 }
+
+
+/* ==============================================================
+   06. Flujo directo: biblioteca -> editor de retratos
+   Al elegir un campeón se oculta la introducción y se muestra
+   una barra compacta con acceso para cambiar de personaje.
+   ============================================================== */
+.px-editing-bar[hidden] { display: none !important; }
+.px-main.is-editing { padding-top: 22px; }
+.px-main.is-editing .px-intro,
+.px-main.is-editing .px-steps { display: none !important; }
+.px-editing-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 16px;
+  padding: 15px 21px;
+  border: 1px solid var(--px-border-gold);
+  background: linear-gradient(105deg, rgba(29,39,57,.98), rgba(19,27,44,.98));
+  box-shadow: 0 9px 26px rgba(0,0,0,.16);
+  border-radius: 15px;
+}
+.px-editing-bar__details { display: grid; gap: 3px; min-width: 0; }
+.px-editing-bar__tag {
+  color: var(--px-gold);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .15em;
+}
+.px-editing-bar__details strong {
+  color: #fff;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+.px-editing-bar__details > span:last-child {
+  font-size: 12px;
+  color: var(--px-muted);
+}
+.px-editing-bar__change {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 43px;
+  border-radius: 11px;
+  padding: 9px 15px;
+  color: #f5d99c;
+  background: rgba(228,170,70,.08);
+  border: 1px solid var(--px-border-gold);
+  font-size: 12px;
+  font-weight: 750;
+}
+.px-editing-bar__change:hover { background: rgba(228,170,70,.18); }
+.px-editing-bar__change span { font-size: 20px; line-height: 1; }
+@media(max-width: 600px) {
+  .px-main.is-editing { padding-top: 12px; }
+  .px-editing-bar { padding: 13px; flex-wrap: wrap; gap: 12px; }
+  .px-editing-bar__details strong { font-size: 18px; }
+  .px-editing-bar__change { width: 100%; }
+}

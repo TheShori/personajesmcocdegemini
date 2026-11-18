@@ -1,10 +1,9 @@
 /**
  * Ajuste automático del nombre en los retratos MCoC.
  *
- * Este archivo complementa el renderizador original (assets/index.8198a119.js).
- * No modifica ningún retrato ni cambia el tamaño del formulario o del canvas.
- * El motor original sigue dibujando el nombre en #strings; interceptamos SOLO
- * ese texto para elegir una fuente que encaje en una única línea.
+ * Además de reducir la fuente cuando el nombre es largo, esta versión
+ * recentra verticalmente el texto dentro de su franja para que no quede
+ * pegado abajo cuando el tamaño disminuye.
  */
 (() => {
   'use strict';
@@ -13,8 +12,6 @@
   window.__portrayerFitNameInstalled = true;
 
   const TEXT_LAYER_IDS = new Set(['strings', 'engraving']);
-  // Límites medidos respecto al canvas original de 500 × 500.
-  // Se reserva espacio a la derecha para mantener el nombre sobre la placa.
   const BOUNDS = Object.freeze({ left: 98, right: 418 });
   const MIN_FONT_SIZE = 4;
   const EPSILON = 0.5;
@@ -29,7 +26,6 @@
   function getNameInput() {
     const app = document.getElementById('app');
     if (!app) return null;
-    // Busca por el texto del label, no por la posición del input en el formulario.
     for (const label of app.querySelectorAll('label')) {
       if (/NOMBRE\s+DEL\s+PERSONAJE|NOMBRE\s+DEL\s+CAMPE[OÓ]N|CHARACTER\s+NAME|CHAMPION\s+NAME/i.test(label.textContent || '')) {
         const input = label.querySelector('input:not([type="number"]),textarea');
@@ -52,9 +48,11 @@
     return match ? Number(match[1]) : null;
   }
 
+  function setFontSize(font, sizePx) {
+    return font.replace(/(^|\s)\d+(?:\.\d+)?px\b/, (_, prefix) => `${prefix}${sizePx.toFixed(2)}px`);
+  }
+
   function rightLimit(ctx, x) {
-    // #strings usa coordenadas de lienzo de 500 × 500. El extremo derecho
-    // del rótulo es fijo, independientemente del zoom/responsive CSS.
     const canvasWidth = ctx.canvas.width || 500;
     const scale = canvasWidth / 500;
     const left = BOUNDS.left * scale;
@@ -67,6 +65,25 @@
     }
   }
 
+  function getVisualMetrics(ctx, text) {
+    const m = ctx.measureText(text);
+    let ascent = m.actualBoundingBoxAscent;
+    let descent = m.actualBoundingBoxDescent;
+    if (!(Number.isFinite(ascent) && Number.isFinite(descent))) {
+      const size = getFontSize(ctx.font) || 0;
+      ascent = size * 0.78;
+      descent = size * 0.22;
+    }
+    return { width: m.width, ascent, descent };
+  }
+
+  function computeCenteredBaseline(originalY, origMetrics, newMetrics) {
+    // Centro visual del texto original con textBaseline = alphabetic:
+    // center = baseline + (-ascent + descent) / 2
+    const originalCenter = originalY + (-origMetrics.ascent + origMetrics.descent) / 2;
+    return originalCenter - (-newMetrics.ascent + newMetrics.descent) / 2;
+  }
+
   function withFittedFont(ctx, text, x, y, maxWidth, original) {
     if (!isNameDrawing(ctx, text) || !Number.isFinite(x)) {
       return Number.isFinite(maxWidth) && maxWidth > 0
@@ -74,33 +91,40 @@
     }
 
     const allowed = rightLimit(ctx, x) - EPSILON;
-    if (allowed <= 0) return; // Evita pintar fuera de los límites de la placa.
+    if (allowed <= 0) return;
+
     const currentFont = ctx.font;
     const originalSize = getFontSize(currentFont);
     if (!originalSize || !Number.isFinite(originalSize)) {
       return original.call(ctx, text, x, y, allowed);
     }
 
-    const normalWidth = ctx.measureText(text).width;
+    const origMetrics = getVisualMetrics(ctx, text);
     const existingLimit = Number.isFinite(maxWidth) && maxWidth > 0 ? maxWidth : Infinity;
     const limit = Math.min(allowed, existingLimit);
-    if (normalWidth <= limit) {
-      // Nombres cortos: el motor dibuja con su fuente ORIGINAL sin cambios.
-      return Number.isFinite(maxWidth) ? original.call(ctx, text, x, y, maxWidth) : original.call(ctx, text, x, y);
+
+    if (origMetrics.width <= limit) {
+      return Number.isFinite(maxWidth)
+        ? original.call(ctx, text, x, y, maxWidth)
+        : original.call(ctx, text, x, y);
     }
 
-    // El ancho del texto es aproximadamente lineal con el tamaño de fuente.
-    // Refinamos por medida real para tipos de letra que no son perfectamente lineales.
-    let desired = Math.max(MIN_FONT_SIZE, originalSize * limit / normalWidth);
+    let desired = Math.max(MIN_FONT_SIZE, originalSize * limit / origMetrics.width);
+    let fittedFont = currentFont;
+    let fittedMetrics = origMetrics;
+    let fittedY = y;
+
     try {
-      for (let i = 0; i < 3; i++) {
-        ctx.font = currentFont.replace(/(^|\s)\d+(?:\.\d+)?px\b/, (_, prefix) => `${prefix}${desired.toFixed(2)}px`);
-        const current = ctx.measureText(text).width;
-        if (current <= limit || desired <= MIN_FONT_SIZE) break;
-        desired = Math.max(MIN_FONT_SIZE, desired * (limit / current));
+      for (let i = 0; i < 5; i++) {
+        fittedFont = setFontSize(currentFont, desired);
+        ctx.font = fittedFont;
+        fittedMetrics = getVisualMetrics(ctx, text);
+        if (fittedMetrics.width <= limit || desired <= MIN_FONT_SIZE) break;
+        desired = Math.max(MIN_FONT_SIZE, desired * (limit / fittedMetrics.width));
       }
-      // Incluso nombres exageradamente largos permanecen en una sola línea.
-      return original.call(ctx, text, x, y, limit);
+      // Recentrar verticalmente para que el texto reducido no se quede abajo.
+      fittedY = computeCenteredBaseline(y, origMetrics, fittedMetrics);
+      return original.call(ctx, text, x, fittedY, limit);
     } finally {
       ctx.font = currentFont;
     }

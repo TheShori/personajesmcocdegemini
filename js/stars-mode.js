@@ -269,15 +269,18 @@
     ctx.stroke();
 
     const count = Math.max(1, Math.min(7, Number(choices.count.value) || 7));
-    const gap = count >= 6 ? 42 : 46;
-    const radius = count >= 6 ? 22 : 24;
-    const start = 250 - ((count - 1) * gap / 2);
+    // Estrellas más grandes y mejor centradas dentro de la placa gris.
+    const gap = count >= 6 ? 48 : 56;
+    const starWidth = count >= 6 ? 58 : 66;
+    const centerX = x + w / 2;
+    const centerY = y + h / 2 + 1;
+    const start = centerX - ((count - 1) * gap / 2);
     // Lógica correcta pedida por el usuario:
     // duplicado = grises, no duplicado = doradas.
     const sprite = getConfiguredStarSprite();
     if (sprite) {
       for (let i = 0; i < count; i++) {
-        drawNativeStar(sprite, start + i * gap, y + h / 2 + 5, radius * 2.15);
+        drawNativeStar(sprite, start + i * gap, centerY, starWidth);
       }
     } else {
       ctx.textAlign = 'center';

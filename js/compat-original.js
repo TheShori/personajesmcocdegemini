@@ -62,44 +62,105 @@
           return document.getElementById("frame");
         }
 
+        // La vista previa y el PNG utilizan EXACTAMENTE el mismo canvas.
+        // Se elimina la antigua pareja <img> + <div> para evitar desfases
+        // provocados por porcentajes, escalado responsive y métricas de fuentes.
+        const BADGE = Object.freeze({ x: 374, y: 368, size: 74 });
+        const BADGE_CENTER = Object.freeze({
+          x: BADGE.x + BADGE.size / 2,
+          y: BADGE.y + BADGE.size / 2
+        });
+        let badgeImage = null;
+        let badgeLoadPromise = null;
+
         function ensureAscensionOverlay() {
           const preview = getPreview();
-          if (!preview) return;
+          if (!preview) return null;
 
-          let icon = document.getElementById("ascensionIcon");
-          if (!icon) {
-            icon = document.createElement("img");
-            icon.id = "ascensionIcon";
-            icon.alt = "Ascension";
-            icon.src = getAscensionAssetPath();
-            icon.onerror = function () {
-              this.onerror = null;
-              this.src = "assets/ascension.png";
+          // Elimina el diseño antiguo si se ejecutó una versión anterior.
+          document.getElementById('ascensionIcon')?.remove();
+          document.getElementById('ascensionNumber')?.remove();
+
+          let overlay = document.getElementById('ascensionOverlay');
+          if (!overlay) {
+            overlay = document.createElement('canvas');
+            overlay.id = 'ascensionOverlay';
+            overlay.width = 500;
+            overlay.height = 500;
+            overlay.setAttribute('aria-hidden', 'true');
+            preview.appendChild(overlay);
+          }
+
+          loadBadgeImage();
+          return overlay;
+        }
+
+        function loadBadgeImage() {
+          if (badgeLoadPromise) return badgeLoadPromise;
+          badgeLoadPromise = new Promise(resolve => {
+            const img = new Image();
+            let triedFallback = false;
+            img.onload = () => {
+              badgeImage = img;
+              updateAscensionVisibility();
+              resolve(true);
             };
-            preview.appendChild(icon);
-          }
+            img.onerror = () => {
+              if (!triedFallback) {
+                triedFallback = true;
+                img.src = 'assets/ascension.png';
+              } else {
+                console.warn('[Portrayer] No se pudo cargar el emblema de ascensión.');
+                resolve(false);
+              }
+            };
+            img.src = getAscensionAssetPath();
+          });
+          return badgeLoadPromise;
+        }
 
-          let number = document.getElementById("ascensionNumber");
-          if (!number) {
-            number = document.createElement("div");
-            number.id = "ascensionNumber";
-            number.textContent = getAscensionLevel();
-            preview.appendChild(number);
-          }
+        function drawAscensionOverlay() {
+          const overlay = document.getElementById('ascensionOverlay');
+          if (!overlay) return;
+          const ctx = overlay.getContext('2d');
+          if (!ctx) return;
+          ctx.clearRect(0, 0, 500, 500);
+          if (!getAscensionFlag() || !badgeImage) return;
 
-          updateAscensionVisibility();
+          ctx.save();
+          // Emblema original en el lugar original, sin modificar assets/.
+          ctx.drawImage(badgeImage, BADGE.x, BADGE.y, BADGE.size, BADGE.size);
+
+          // El centro del círculo se corresponde con el centro del emblema.
+          // Se corrige además el centro VISUAL del glifo midiendo sus píxeles,
+          // no usando line-height ni textBaseline='middle'.
+          const level = getAscensionLevel();
+          ctx.font = "bold 24px 'Hanzel Normal', sans-serif";
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'alphabetic';
+          ctx.lineWidth = 4;
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = '#050505';
+          ctx.fillStyle = '#ffffff';
+
+          const m = ctx.measureText(level);
+          const ascent = Number.isFinite(m.actualBoundingBoxAscent) ? m.actualBoundingBoxAscent : 18;
+          const descent = Number.isFinite(m.actualBoundingBoxDescent) ? m.actualBoundingBoxDescent : 0;
+          const left = Number.isFinite(m.actualBoundingBoxLeft) ? m.actualBoundingBoxLeft : 0;
+          const right = Number.isFinite(m.actualBoundingBoxRight) ? m.actualBoundingBoxRight : 0;
+          const x = BADGE_CENTER.x - (right - left) / 2;
+          const y = BADGE_CENTER.y + (ascent - descent) / 2;
+
+          ctx.strokeText(level, x, y);
+          ctx.fillText(level, x, y);
+          ctx.restore();
         }
 
         function updateAscensionVisibility() {
-          const icon = document.getElementById("ascensionIcon");
-          const number = document.getElementById("ascensionNumber");
-
-          if (!icon || !number) return;
-
-          const enabled = getAscensionFlag();
-          icon.style.display = enabled ? "block" : "none";
-          number.style.display = enabled ? "block" : "none";
-          number.textContent = getAscensionLevel();
+          const overlay = document.getElementById('ascensionOverlay');
+          if (!overlay) return;
+          overlay.hidden = !getAscensionFlag();
+          drawAscensionOverlay();
         }
 
         function drawFrameCanvas() {
@@ -231,68 +292,43 @@
 
         function hookExportButton() {
           if (exportHooked) return;
-          const btn = document.querySelector("button.button-contest");
+          const btn = document.querySelector('button.button-contest');
           if (!btn) return;
-
           exportHooked = true;
 
-          btn.addEventListener(
-            "click",
-            function (ev) {
-              ev.preventDefault();
-              ev.stopImmediatePropagation();
+          btn.addEventListener('click', async function (event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
 
-              const out = document.createElement("canvas");
-              out.width = 500;
-              out.height = 500;
-              const ctx = out.getContext("2d");
+            // Si el usuario exporta antes de que termine de cargar el icono,
+            // esperar a la imagen para no obtener una descarga incompleta.
+            if (getAscensionFlag()) {
+              await loadBadgeImage();
+              if (document.fonts?.ready) await document.fonts.ready;
+              drawAscensionOverlay();
+            }
 
-              const ids = ["background", "frame", "portrait", "engraving", "tier", "strings", "rank"];
-              ids.forEach(id => {
-                const canvas = document.getElementById(id);
-                if (canvas) ctx.drawImage(canvas, 0, 0);
-              });
+            const out = document.createElement('canvas');
+            out.width = 500;
+            out.height = 500;
+            const ctx = out.getContext('2d');
+            if (!ctx) return;
 
-              if (getAscensionFlag()) {
-                const icon = new Image();
-icon.onload = function () {
-  ctx.drawImage(icon, 374, 368, 74, 74);
+            for (const id of ['background', 'frame', 'portrait', 'engraving', 'tier', 'strings', 'rank']) {
+              const layer = document.getElementById(id);
+              if (layer) ctx.drawImage(layer, 0, 0);
+            }
 
-  ctx.font = "bold 24px 'Hanzel Normal', sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "black";
-  ctx.fillStyle = "white";
+            if (getAscensionFlag()) {
+              const overlay = document.getElementById('ascensionOverlay');
+              if (overlay) ctx.drawImage(overlay, 0, 0);
+            }
 
-  // Centro visual del medallón (no el centro del PNG con alas).
-  // Equivale a left:81.3% / top:78.5% del preview de 500 × 500.
-  const x = 406.5;
-  const y = 392.5;
-  const txt = getAscensionLevel();
-
-  ctx.strokeText(txt, x, y);
-  ctx.fillText(txt, x, y);
-
-  const a = document.createElement("a");
-  a.download = `portrait-${Date.now()}.png`;
-  a.href = out.toDataURL("image/png");
-  a.click();
-};
-                icon.onerror = function () {
-                  this.onerror = null;
-                  this.src = "assets/ascension.png";
-                };
-                icon.src = getAscensionAssetPath();
-              } else {
-                const a = document.createElement("a");
-                a.download = `portrait-${Date.now()}.png`;
-                a.href = out.toDataURL("image/png");
-                a.click();
-              }
-            },
-            true
-          );
+            const link = document.createElement('a');
+            link.download = `portrait-${Date.now()}.png`;
+            link.href = out.toDataURL('image/png');
+            link.click();
+          }, true);
         }
 
         function installFrameHook() {
@@ -345,6 +381,9 @@ icon.onload = function () {
           hookExportButton();
           updateAscensionVisibility();
           drawFrameCanvas();
+          if (document.fonts?.ready) {
+            document.fonts.ready.then(drawAscensionOverlay);
+          }
         }
 
         installFrameHook();

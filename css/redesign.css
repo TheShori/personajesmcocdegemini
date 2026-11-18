@@ -210,27 +210,22 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   pointer-events: none;
 }
 #preview canvas { max-width: 100%; }
-/* Ascensión 7★. El PNG del emblema contiene alas y una punta inferior:
-   su CENTRO VISUAL (círculo marrón) no coincide con el centro del archivo.
-   El número se coloca sobre el círculo, no sobre el centro del PNG.
-   El exportador usa las mismas coordenadas relativas en un lienzo de 500 px. */
-#ascensionIcon {
+/* Ascensión: una única capa canvas de 500 × 500.
+   El emblema y su número comparten coordenadas; el mismo canvas se
+   superpone en el editor y se añade al PNG. No se posiciona el texto
+   mediante CSS, así que no puede descuadrarse al cambiar de tamaño. */
+#preview #ascensionOverlay {
   position: absolute;
-  left: 74.8%; top: 73.6%; width: 14.8%; height: 14.8%;
-  object-fit: contain; z-index: 21; pointer-events: none;
+  inset: 0;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none;
+  z-index: 22;
+  pointer-events: none;
+  object-fit: fill;
 }
-#ascensionNumber {
-  position: absolute;
-  left: 81.3%; top: 78.5%;
-  transform: translate(-50%, -50%);
-  margin: 0; padding: 0; line-height: 1;
-  z-index: 22; pointer-events: none;
-  color: #fff; font-weight: 900;
-  font-size: clamp(13px, 1.8vw, 24px);
-  white-space: nowrap;
-  text-align: center;
-  text-shadow: -1px -1px #060709, 2px 2px #060709, 0 0 8px #000;
-}
+#preview #ascensionOverlay[hidden] { display: none !important; }
 #app .ascension-inline-wrap { display: block; padding: 8px 0; }
 #app .ascension-inline-content { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 #app .ascension-inline-content input[type="checkbox"] { margin-right: 0; }

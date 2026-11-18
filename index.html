@@ -35,6 +35,14 @@
   </header>
 
   <main class="px-main">
+    <!-- Navegación entre los dos generadores. No se desmonta el motor original. -->
+    <nav class="px-mode-tabs" aria-label="Tipo de retrato" role="tablist">
+      <button id="px-tab-original" class="px-mode-tab is-active" type="button" role="tab"
+        aria-selected="true" aria-controls="px-original-mode">✦ Retrato clásico</button>
+      <button id="px-tab-stars" class="px-mode-tab" type="button" role="tab"
+        aria-selected="false" aria-controls="px-stars-view">★ Ficha de estrellas</button>
+    </nav>
+    <div id="px-original-mode" role="tabpanel" aria-labelledby="px-tab-original">
     <section class="px-intro" aria-labelledby="px-title">
       <div>
         <div class="px-eyebrow"><span></span> EL TALLER DE LOS CAMPEONES</div>
@@ -70,6 +78,57 @@
     <div id="app"></div>
 
     <p class="px-footnote">La ficha usa tus retratos y marcos originales de <code>assets/</code>. La personalización y exportación siguen funcionando con el motor existente.</p>
+    </div><!-- /px-original-mode -->
+
+    <!-- NUEVA PESTAÑA: usa las capas originales de #app sin rehacer los assets. -->
+    <section id="px-stars-view" class="px-stars-view" role="tabpanel" aria-labelledby="px-tab-stars" hidden>
+      <div class="px-stars-heading">
+        <div>
+          <span class="px-eyebrow">NUEVO FORMATO · MCOC</span>
+          <h1>Tu campeón. <em>Solo estrellas.</em></h1>
+          <p>El mismo retrato y los mismos marcos, sin nombre, clase ni potencia. Elige de 1 a 7 estrellas y crea una ficha como la de tu referencia.</p>
+        </div>
+        <button id="px-stars-find" class="px-button-picker" type="button">⌕ Buscar campeón</button>
+      </div>
+      <div class="px-stars-layout">
+        <div class="px-stars-preview-pane">
+          <div class="px-stars-preview-top"><span>VISTA PREVIA EN DIRECTO</span><span>500 × 500 PNG</span></div>
+          <canvas id="px-stars-canvas" width="500" height="500" role="img" aria-label="Vista previa del retrato con estrellas doradas"></canvas>
+          <div class="px-stars-preview-bottom">La banda inferior sustituye al nombre y la potencia. El resultado descargado será igual a la vista previa.</div>
+        </div>
+        <div class="px-stars-controls" aria-label="Opciones de ficha de estrellas">
+          <div class="px-stars-section-head"><span class="px-eyebrow">PERSONALIZA TU FICHA</span><h2>Configura tu campeón</h2></div>
+          <div class="px-stars-field">
+            <label for="px-stars-character">Campeón seleccionado</label>
+            <div class="px-stars-selected-row"><strong id="px-stars-character" aria-live="polite">Elige un personaje…</strong><button id="px-stars-change" type="button">Cambiar</button></div>
+          </div>
+          <div class="px-stars-fields-2">
+            <div class="px-stars-field"><label for="px-stars-count">Número de estrellas</label><select id="px-stars-count">
+              <option value="1">1 estrella</option><option value="2">2 estrellas</option><option value="3">3 estrellas</option>
+              <option value="4">4 estrellas</option><option value="5">5 estrellas</option><option value="6">6 estrellas</option>
+              <option value="7" selected>7 estrellas</option></select></div>
+            <div class="px-stars-field"><label for="px-stars-frame">Marco del campeón</label><select id="px-stars-frame">
+              <option value="auto">Automático (según estrellas)</option>
+              <option value="1">Marco 1★</option><option value="2">Marco 2★</option><option value="3">Marco 3★</option>
+              <option value="4">Marco 4★</option><option value="5">Marco 5★</option><option value="6">Marco 6★</option><option value="7">Marco 7★</option></select></div>
+          </div>
+          <label class="px-stars-checkbox"><input id="px-stars-duped" type="checkbox" checked><span><strong>Campeón duplicado</strong><small>Estrellas doradas si está duplicado; plateadas si no.</small></span></label>
+          <label class="px-stars-checkbox"><input id="px-stars-ascension" type="checkbox" checked><span><strong>Mostrar ascensión</strong><small>Emblema dorado en la esquina superior derecha, como la referencia.</small></span></label>
+          <div class="px-stars-field px-stars-asc-level"><label for="px-stars-level">Nivel de ascensión</label><select id="px-stars-level">
+            <option value="1">Nivel 1</option><option value="2">Nivel 2</option><option value="3">Nivel 3</option>
+            <option value="4">Nivel 4</option><option value="5">Nivel 5</option><option value="6">Nivel 6</option>
+            <option value="7">Nivel 7</option><option value="8">Nivel 8</option><option value="9">Nivel 9</option>
+            <option value="10">Nivel 10</option><option value="11">Nivel 11</option><option value="12">Nivel 12</option>
+          </select></div>
+          <div class="px-stars-field"><label for="px-stars-background">Fondo del PNG</label><select id="px-stars-background">
+            <option value="dark">Verde oscuro (como la referencia)</option>
+            <option value="transparent">Transparente</option>
+          </select></div>
+          <button id="px-stars-download" type="button" class="px-stars-download">↓ Descargar ficha PNG</button>
+          <p class="px-stars-note">Se usan los retratos y marcos reales de <code>assets/</code>. Tu editor clásico no se sustituye.</p>
+        </div>
+      </div>
+    </section>
   </main>
 
   <dialog id="px-picker" class="px-dialog" aria-labelledby="px-picker-title">
@@ -109,5 +168,6 @@
   <script src="./js/fit-name.js"></script>
   <script src="./js/compat-original.js"></script>
   <script src="./js/ui-original.js" defer></script>
+  <script src="./js/stars-mode.js" defer></script>
 </body>
 </html>

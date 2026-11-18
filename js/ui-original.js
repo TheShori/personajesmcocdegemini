@@ -312,6 +312,12 @@
     if (normalized(control.value) !== normalized(value)) setNativeValue(control, value);
     selectedValue = entry.value || entry.name;
     showEditor(entry.name);
+    // La nueva pestaña escucha esta señal y dibuja su propia placa de estrellas.
+    document.dispatchEvent(new CustomEvent('px:champion-selected', { detail: { name: entry.name, value } }));
+    // Tras elegir un campeón en la pestaña de estrellas volvemos al editor nuevo.
+    if (document.body.classList.contains('px-stars-mode') && dialog.open) {
+      dialog.close();
+    }
     // Señal visual de qué personaje está seleccionado actualmente.
     for (const item of results.querySelectorAll('.px-champ')) {
       const active = normalized(item.querySelector('.px-champ__name')?.textContent) === normalized(entry.name);
@@ -358,6 +364,7 @@
   dialog.addEventListener('close', () => {
     // Cuando se cierra el buscador se devuelve el editor a su lugar sin recrearlo.
     restoreEditor();
+    if (document.body.classList.contains('px-stars-mode')) return;
     if (document.querySelector('.px-main.is-editing')) {
       const bar = $('px-editing-bar');
       requestAnimationFrame(() => bar?.scrollIntoView({ behavior: 'smooth', block: 'start' }));

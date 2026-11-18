@@ -512,3 +512,86 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .px-dialog__app-host #app { padding: 8px !important; }
   .px-dialog__help { font-size: 10px; padding: 9px 13px 12px; }
 }
+
+/* ================================================================
+   08 · Nueva pestaña «Ficha de estrellas»
+   El editor original se mantiene montado y operativo.
+   ================================================================ */
+.px-mode-tabs {
+  display: flex; flex-wrap: wrap; gap: 9px; width: fit-content;
+  padding: 6px; margin-bottom: 26px;
+  background: #111a2a;
+  border: 1px solid rgba(238,195,103,.22);
+  border-radius: 15px;
+}
+.px-mode-tab {
+  color: #a6b5cb; background: transparent; border: 1px solid transparent;
+  padding: 12px 20px; font-size: 13px; font-weight: 800;
+  border-radius: 11px; cursor: pointer;
+}
+.px-mode-tab.is-active {
+  color: #231807; border-color: #e7b55a;
+  background: linear-gradient(115deg,#f6d993,#dda953);
+  box-shadow: 0 5px 20px rgba(240,177,79,.16);
+}
+.px-mode-tab:not(.is-active):hover { color:#fff; background:#26344b; }
+.px-stars-view[hidden], #px-original-mode[hidden] { display: none !important; }
+.px-stars-view { width: 100%; min-width: 0; }
+.px-stars-heading { display: flex; justify-content: space-between; align-items: end; gap: 26px; margin-bottom: 23px; }
+.px-stars-heading h1 { color: #f8f9fe; font-size: clamp(31px,3.6vw,48px); letter-spacing:-.055em; margin: 8px 0 9px; line-height:1.1; }
+.px-stars-heading h1 em { color:var(--px-gold); font-style:normal; }
+.px-stars-heading p { color:#a0aec5; font-size:13px; max-width:690px; margin:0; line-height:1.65; }
+.px-stars-layout { display:grid; grid-template-columns:minmax(0,.93fr) minmax(0,1fr); gap:26px; align-items:start; }
+.px-stars-preview-pane, .px-stars-controls {
+  background:linear-gradient(150deg,#192437,#121a29);
+  border:1px solid rgba(242,196,108,.22);
+  border-radius:23px; box-shadow:0 20px 44px rgba(0,0,0,.23);
+  min-width:0;
+}
+.px-stars-preview-pane { padding:24px; display:flex; flex-direction:column; align-items:center; gap:15px; }
+.px-stars-preview-top { display:flex; width:100%; align-items:center; justify-content:space-between; gap:10px; color:#aebdd3; font-size:10px; font-weight:800; letter-spacing:.075em; }
+.px-stars-preview-top span:last-child { color:#e9bd70; }
+#px-stars-canvas { display:block; width:min(100%,500px); height:auto; aspect-ratio:1; border-radius:15px; box-shadow:0 18px 38px rgba(0,0,0,.28); background:#091618; }
+.px-stars-preview-bottom { max-width:450px; text-align:center; color:#98a9c0; font-size:11px; line-height:1.5; }
+.px-stars-controls { padding:25px; display:flex; flex-direction:column; gap:17px; }
+.px-stars-section-head { padding-bottom:6px; border-bottom:1px solid rgba(170,192,220,.12); }
+.px-stars-section-head h2 { margin:5px 0 10px; font-size:25px; color:#f8f9fd; }
+.px-stars-field { display:grid; gap:8px; min-width:0; }
+.px-stars-field > label { color:#b2bfd3; font-size:12px; font-weight:720; }
+.px-stars-fields-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.px-stars-field select { width:100%; min-width:0; min-height:46px; border-radius:10px; border:1px solid #344259; color:#f7f9fe; background:#1e2b3f; padding:9px 12px; font-size:13px; }
+.px-stars-selected-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; background:#1e2b3f; border:1px solid #344259; border-radius:10px; min-height:48px; }
+.px-stars-selected-row strong { color:#fff; overflow-wrap:anywhere; font-size:14px; }
+.px-stars-selected-row button { color:#f3d08d; border:1px solid rgba(239,185,90,.4); background:rgba(230,171,70,.1); border-radius:9px; padding:8px 11px; cursor:pointer; }
+.px-stars-checkbox { display:flex; align-items:flex-start; gap:11px; padding:12px; background:rgba(10,18,30,.47); border:1px solid #314056; border-radius:11px; cursor:pointer; }
+.px-stars-checkbox input { flex:none; width:17px; height:17px; margin-top:2px; accent-color:#eabc61; }
+.px-stars-checkbox span { display:grid; gap:3px; }
+.px-stars-checkbox strong { color:#f0f3fa; font-size:13px; }
+.px-stars-checkbox small { color:#96a9c2; font-size:11px; line-height:1.5; }
+.px-stars-no-asc .px-stars-asc-level { display:none; }
+.px-stars-download { border:0; border-radius:12px; min-height:55px; color:#231a0c; font-weight:900; font-size:13px; letter-spacing:.02em; cursor:pointer; background:linear-gradient(112deg,#fae09d,#e8ae50); box-shadow:0 10px 25px rgba(238,181,80,.16); }
+.px-stars-download:hover { filter:brightness(1.06); }
+.px-stars-note { color:#889ab2; font-size:11px; text-align:center; line-height:1.55; margin:0; }
+.px-stars-note code { color:#e8bf70; }
+/* Reutilizamos exactamente la biblioteca de la página original para este modo. */
+.px-stars-mode .px-dialog__workspace { display:block; }
+.px-stars-mode .px-dialog__sidebar { height:100%; border-right:0; }
+.px-stars-mode .px-dialog__studio { display:none !important; }
+.px-stars-mode .px-dialog__list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-content:start; }
+.px-stars-mode .px-champ { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:125px; }
+.px-stars-mode .px-champ__name { text-align:center; }
+@media (max-width:930px) {
+  .px-stars-layout { grid-template-columns:minmax(0,1fr); }
+  .px-stars-preview-pane { padding:18px; }
+  .px-stars-controls { padding:20px; }
+}
+@media (max-width:620px) {
+  .px-mode-tabs { width:100%; }
+  .px-mode-tab { flex:1; font-size:11px; padding:10px 8px; }
+  .px-stars-heading { flex-direction:column; align-items:stretch; gap:15px; }
+  .px-stars-heading .px-button-picker { align-self:flex-start; }
+  .px-stars-controls { padding:16px; gap:13px; }
+  .px-stars-fields-2 { grid-template-columns:1fr; }
+  .px-stars-mode .px-dialog__list { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+.px-stars-mode .px-dialog__list { max-height:none; overflow-y:auto; overflow-x:hidden; }

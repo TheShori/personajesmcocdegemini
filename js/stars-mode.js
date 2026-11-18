@@ -29,7 +29,10 @@
     assetImage: null,
     frameCache: new Map(),
     lastPortraitPresent: false,
-    classicalSettings: null
+    classicalSettings: null,
+    goldStarImage: null,
+    greyStarImage: null,
+    starLoadStarted: false
   };
   const nativeValueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
 
@@ -112,6 +115,22 @@
       if (!triedFallback) { triedFallback = true; image.src = './assets/ascension.png'; }
     };
     image.src = './assets/ascension.PNG';
+  }
+
+
+  function loadStarAssets() {
+    if (state.starLoadStarted) return;
+    state.starLoadStarted = true;
+    const items = [
+      ['greyStarImage', './stars-assets/star-grey.png'],
+      ['goldStarImage', './stars-assets/star-gold.png']
+    ];
+    for (const [key, path] of items) {
+      const image = new Image();
+      image.onload = () => { state[key] = image; scheduleDraw(); };
+      image.onerror = () => { console.warn('[Portrayer] No se pudo cargar', path); };
+      image.src = path;
+    }
   }
 
   function frameAssetPath(tier) {
@@ -210,144 +229,8 @@
     ctx.roundRect(x, y, w, h, r);
   }
 
-  /**
-   * Captura una estrella REAL del renderizador original (#tier).
-   * No se dibuja ningún polígono ni se inventa una silueta nueva.
-   * Los tonos dorado/gris se aplican únicamente a los píxeles del sprite
-   * original, conservando su relieve, transparencias y contorno.
-   */
-  const originalStars = { gold: null, grey: null, source: null, lastTry: 0 };
-
-  function recolorOriginalStar(source, gold) {
-    // Si el motor ya aporta la estrella en el color solicitado, copiamos
-    // sus píxeles EXACTOS sin recolorear.
-    const originalContext = source.getContext('2d', { willReadFrequently: true });
-    const originalData = originalContext.getImageData(0, 0, source.width, source.height).data;
-    let goldPixels = 0, greyPixels = 0, checked = 0;
-    for (let i = 0; i < originalData.length; i += 4) {
-      if (originalData[i + 3] < 160) continue;
-      const r = originalData[i], g = originalData[i + 1], b = originalData[i + 2];
-      checked++;
-      if (r > g * 1.16 && g > b * 1.28) goldPixels++;
-      if (Math.abs(r - g) < 14 && Math.abs(g - b) < 21) greyPixels++;
-    }
-    if (checked > 20 && (gold ? goldPixels / checked > .60 : greyPixels / checked > .68)) {
-      return source;
-    }
-    const output = document.createElement('canvas');
-    output.width = source.width;
-    output.height = source.height;
-    const g = output.getContext('2d', { willReadFrequently: true });
-    g.drawImage(source, 0, 0);
-    const pixels = g.getImageData(0, 0, output.width, output.height);
-    const d = pixels.data;
-    const palette = gold
-      ? [[115, 56, 8], [227, 136, 20], [255, 224, 104]]
-      : [[70, 76, 85], [163, 171, 182], [245, 247, 251]];
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] === 0) continue;
-      // Preservamos el sombreado original del PNG del propio juego.
-      const lum = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
-      const t = Math.max(0, Math.min(1, (lum - 0.10) / 0.80));
-      const section = t < .52 ? 0 : 1;
-      const f = section === 0 ? t / .52 : (t - .52) / .48;
-      const a = palette[section], b = palette[section + 1];
-      for (let k = 0; k < 3; k++) d[i + k] = Math.round(a[k] + (b[k] - a[k]) * f);
-    }
-    g.putImageData(pixels, 0, 0);
-    return output;
-  }
-
-  function findNativeStarSprite() {
-    const layer = originalCanvas('tier');
-    if (!layer) return null;
-    const sourceCtx = layer.getContext('2d', { willReadFrequently: true });
-    if (!sourceCtx) return null;
-    const cw = layer.width, ch = layer.height;
-    const scaleX = cw / 500, scaleY = ch / 500;
-    const left = Math.max(0, Math.floor(65 * scaleX));
-    const right = Math.min(cw, Math.ceil(445 * scaleX));
-    const top = Math.max(0, Math.floor(255 * scaleY));
-    const bottom = Math.min(ch, Math.ceil(355 * scaleY));
-    const w = right - left, h = bottom - top;
-    if (w <= 0 || h <= 0) return null;
-
-    let rgba;
-    try { rgba = sourceCtx.getImageData(left, top, w, h).data; }
-    catch (error) { console.warn('[Portrayer] No se puede leer la capa original de estrellas', error); return null; }
-
-    const col = new Int32Array(w);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        if (rgba[(y * w + x) * 4 + 3] > 35) col[x]++;
-      }
-    }
-    const active = [];
-    for (let x = 0; x < w; x++) if (col[x] >= 2) active.push(x);
-    if (!active.length) return null;
-
-    const groups = [];
-    let begin = active[0], prev = begin;
-    for (let i = 1; i < active.length; i++) {
-      if (active[i] - prev > Math.max(2, Math.round(3 * scaleX))) {
-        groups.push([begin, prev]);
-        begin = active[i];
-      }
-      prev = active[i];
-    }
-    groups.push([begin, prev]);
-    // Si las sombras originales unen las estrellas, segmentamos la hilera.
-    const count = Math.max(1, Math.min(7, Number(nativeTierInput()?.value) || 7));
-    let minX, maxX;
-    if (groups.length >= count && groups.length <= count + 1) {
-      const group = groups[Math.floor(groups.length / 2)];
-      minX = group[0]; maxX = group[1];
-    } else {
-      const extent = active[active.length - 1] - active[0] + 1;
-      const pitch = extent / count;
-      const i = Math.floor(count / 2);
-      minX = Math.round(active[0] + i * pitch);
-      maxX = Math.round(active[0] + (i + 1) * pitch - 1);
-    }
-    const padX = Math.max(2, Math.round(3 * scaleX));
-    minX = Math.max(0, minX - padX);
-    maxX = Math.min(w - 1, maxX + padX);
-    if (maxX - minX < 5) return null;
-
-    let minY = h, maxY = -1;
-    for (let y = 0; y < h; y++) {
-      for (let x = minX; x <= maxX; x++) {
-        if (rgba[(y * w + x) * 4 + 3] > 20) {
-          minY = Math.min(minY, y);
-          maxY = Math.max(maxY, y);
-        }
-      }
-    }
-    if (maxY < minY) return null;
-    const padY = Math.max(2, Math.round(3 * scaleY));
-    minY = Math.max(0, minY - padY);
-    maxY = Math.min(h - 1, maxY + padY);
-    const sprite = document.createElement('canvas');
-    sprite.width = maxX - minX + 1;
-    sprite.height = maxY - minY + 1;
-    sprite.getContext('2d').drawImage(layer, left + minX, top + minY, sprite.width, sprite.height,
-      0, 0, sprite.width, sprite.height);
-    return sprite;
-  }
-
-  function getOriginalStarSprite(isGold) {
-    const now = performance.now();
-    // Una nueva lectura permite cambiar de 1 a 7★ sin depender de recargas.
-    if (!originalStars.source || now - originalStars.lastTry > 800) {
-      const sprite = findNativeStarSprite();
-      originalStars.lastTry = now;
-      if (sprite) {
-        originalStars.source = sprite;
-        originalStars.gold = recolorOriginalStar(sprite, true);
-        originalStars.grey = recolorOriginalStar(sprite, false);
-      }
-    }
-    return isGold ? originalStars.gold : originalStars.grey;
+  function getConfiguredStarSprite() {
+    return choices.duped.checked ? state.greyStarImage : state.goldStarImage;
   }
 
   function drawNativeStar(sprite, cx, cy, width) {
@@ -389,15 +272,14 @@
     const gap = count >= 6 ? 42 : 46;
     const radius = count >= 6 ? 22 : 24;
     const start = 250 - ((count - 1) * gap / 2);
-    const gold = !!choices.duped.checked; // duplicado = doradas / no duplicado = grises
-    const sprite = getOriginalStarSprite(gold);
+    // Lógica correcta pedida por el usuario:
+    // duplicado = grises, no duplicado = doradas.
+    const sprite = getConfiguredStarSprite();
     if (sprite) {
       for (let i = 0; i < count; i++) {
         drawNativeStar(sprite, start + i * gap, y + h / 2 + 5, radius * 2.15);
       }
     } else {
-      // Nunca sustituir los recursos reales por estrellas inventadas.
-      // Si no se ha cargado la capa original, mostrar información en la placa.
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = '600 13px system-ui, sans-serif';
@@ -578,4 +460,5 @@
 
   window.setInterval(() => { if (state.active && !document.hidden) draw(); }, 650);
   loadBadge();
+  loadStarAssets();
 })();

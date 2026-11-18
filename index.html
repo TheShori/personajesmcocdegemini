@@ -77,7 +77,7 @@
       <div>
         <span class="px-eyebrow">BIBLIOTECA DE PERSONAJES</span>
         <h2 id="px-picker-title">Encuentra tu campeón</h2>
-        <p id="px-picker-description">Busca por nombre entre los campeones del selector original.</p>
+        <p id="px-picker-description">Busca un campeón: su ficha aparecerá aquí mismo, lista para editar.</p>
       </div>
       <button class="px-dialog__close" id="px-picker-close" type="button" aria-label="Cerrar">×</button>
     </div>
@@ -85,9 +85,24 @@
       <span aria-hidden="true">⌕</span>
       <input id="px-search" type="search" placeholder="Thanos, Doom, Spider-Man..." autocomplete="off" aria-label="Buscar por nombre">
     </label>
-    <p id="px-picker-meta" class="px-dialog__meta" role="status" aria-live="polite"></p>
-    <div id="px-picker-results" class="px-dialog__list" role="list"></div>
-    <p class="px-dialog__help">Haz clic en un campeón para abrir directamente su editor. Se siguen usando los retratos y marcos originales.</p>
+    <div class="px-dialog__workspace">
+      <aside class="px-dialog__sidebar" aria-label="Resultados de búsqueda">
+        <p id="px-picker-meta" class="px-dialog__meta" role="status" aria-live="polite"></p>
+        <div id="px-picker-results" class="px-dialog__list" role="list"></div>
+      </aside>
+      <section id="px-inline-studio" class="px-dialog__studio" aria-label="Editor de retratos en directo">
+        <div class="px-dialog__studio-title">
+          <div>
+            <span class="px-eyebrow">EDITOR EN DIRECTO</span>
+            <h3 id="px-inline-name">Tu retrato personalizado</h3>
+            <p>Selecciona un resultado o escribe un nombre exacto. Edita la ficha aquí mismo.</p>
+          </div>
+          <span class="px-dialog__live" aria-hidden="true">● VISTA PREVIA</span>
+        </div>
+        <div id="px-editor-target" class="px-dialog__app-host"></div>
+      </section>
+    </div>
+    <p class="px-dialog__help">El retrato grande y todos los controles son del editor original. Puedes editar y descargar el PNG sin salir del buscador.</p>
   </dialog>
 
   <!-- Antes de que se ejecute el motor type=module, registramos la compatibilidad heredada. -->

@@ -22,6 +22,23 @@
   let catalog = [];
   let loadingCatalog = null;
   let queryDelay = 0;
+  let selectedValue = null;
+  const app = $('app');
+  // El motor ORIGINAL se monta una única vez y se mueve sin destruir el DOM,
+  // sus componentes Vue, los listeners ni los canvas de previsualización.
+  const originalLocation = document.createComment('Ubicación original del editor Portrayer');
+  app?.parentNode?.insertBefore(originalLocation, app);
+
+  function mountEditorInSearch() {
+    const host = $('px-editor-target');
+    if (app && host && app.parentNode !== host) host.appendChild(app);
+  }
+
+  function restoreEditor() {
+    if (app && originalLocation.parentNode && app.parentNode !== originalLocation.parentNode) {
+      originalLocation.parentNode.insertBefore(app, originalLocation.nextSibling);
+    }
+  }
 
   function normalized(text) {
     return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -209,13 +226,36 @@
 
   function renderList() {
     const q = normalized(search.value);
-    const matching = catalog.filter((entry) => normalized(entry.name).includes(q));
-    meta.textContent = `${matching.length} campeón${matching.length === 1 ? '' : 'es'} encontrado${matching.length === 1 ? '' : 's'}${matching.length > MAX_SHOWN ? ` · mostrando los primeros ${MAX_SHOWN}` : ''}`;
-    if (!matching.length) {
-      showMessage('Sin coincidencias', 'Prueba otra búsqueda o usa el selector original de personajes.');
+    if (!q) {
+      meta.textContent = 'Escribe el nombre de un campeón para buscarlo.';
+      showMessage('¿Qué campeón quieres crear?', 'Prueba con Electro, Thanos o Elsa Bloodstone. La ficha completa aparecerá a la derecha.');
       return;
     }
+    const matching = catalog.filter((entry) => normalized(entry.name).includes(q));
+    meta.textContent = `${matching.length} campeón${matching.length === 1 ? '' : 'es'} encontrado${matching.length === 1 ? '' : 's'}`;
+    if (!matching.length) {
+      showMessage('Sin coincidencias', 'Prueba otro nombre o utiliza el selector del editor original.');
+      return;
+    }
+    // Se mantiene una lista reducida para las variantes (por ejemplo, varios Thanos).
+    // La ficha GRANDE se genera en el mismo buscador, no se abre otra pantalla.
     results.replaceChildren(...matching.slice(0, MAX_SHOWN).map(cardFor));
+
+    // «Electro» coincide también con «Alt Electro Luke»; preferimos SIEMPRE
+    // el nombre exacto. Si solo hay una coincidencia y la búsqueda es suficientemente
+    // clara, también la preseleccionamos sin exigir un clic adicional.
+    const exact = matching.find((entry) => normalized(entry.name) === q);
+    const obvious = matching.length === 1 && q.length >= 3 ? matching[0] : null;
+    const choice = exact || obvious;
+    if (choice && normalized(selectedValue) !== normalized(choice.value || choice.name)) {
+      pickChampion(choice, { automatic: true });
+    }
+    for (const button of results.querySelectorAll('.px-champ')) {
+      const name = normalized(button.querySelector('.px-champ__name')?.textContent);
+      const active = selectedValue && name === normalized(selectedValue);
+      button.classList.toggle('is-active', Boolean(active));
+      button.setAttribute('aria-pressed', String(Boolean(active)));
+    }
   }
 
   function setNativeValue(element, value) {
@@ -228,25 +268,18 @@
   }
 
   /**
-   * Cambiar de la biblioteca a la edición sin modificar el renderizador Vue.
-   * Evitamos enfocar el campo de nombre en móviles para no abrir el teclado.
+   * La selección actualiza la ficha original sin cerrar la biblioteca.
+   * Es el mismo #app Vue que queda disponible debajo al cerrar el buscador.
    */
   function showEditor(championName) {
     const main = document.querySelector('.px-main');
     const bar = $('px-editing-bar');
-    if (!main || !bar) return;
-
-    $('px-editing-name').textContent = championName;
-    bar.hidden = false;
-    main.classList.add('is-editing');
-
-    // El modal deja de bloquear el desplazamiento antes de iniciar la transición.
-    if (dialog.open) dialog.close();
-    window.requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const top = Math.max(0, bar.getBoundingClientRect().top + window.scrollY - 14);
-      window.scrollTo({ top, behavior: reduceMotion ? 'instant' : 'smooth' });
-    });
+    if (main && bar) {
+      $('px-editing-name').textContent = championName;
+      bar.hidden = false;
+      main.classList.add('is-editing');
+    }
+    $('px-inline-name').textContent = championName;
   }
 
   function nativeCandidateValue(control, entry) {
@@ -262,36 +295,44 @@
     return control.tagName === 'SELECT' ? null : (entry.source === 'native' && entry.value ? entry.value : entry.name);
   }
 
-  function pickChampion(entry) {
+  function pickChampion(entry, { automatic = false } = {}) {
     const control = findChampionControl();
     if (!control) {
-      // No se anuncia una selección que el editor original no ha recibido.
-      showMessage('Editor no disponible', 'El selector original todavía no está listo. Recarga la página y vuelve a intentarlo.');
-      return;
+      if (!automatic) showMessage('Editor no disponible', 'El motor original todavía no ha cargado. Recarga la página e inténtalo de nuevo.');
+      return false;
     }
-
     const value = nativeCandidateValue(control, entry);
     if (!value) {
-      showMessage('Campeón no disponible', 'Ese personaje no aparece en las opciones originales. Elige otro campeón.');
-      return;
+      if (!automatic) showMessage('Campeón no disponible', 'No aparece en las opciones del editor original. Elige otro campeón.');
+      return false;
     }
 
-    // El compilado Vue escucha input/change; el setter nativo preserva su reactividad.
-    setNativeValue(control, value);
+    // Solo actualizamos el modelo si cambia la selección; de esta forma
+    // no se reinician nombre, potencia, clase ni otros valores ya editados.
+    if (normalized(control.value) !== normalized(value)) setNativeValue(control, value);
+    selectedValue = entry.value || entry.name;
     showEditor(entry.name);
+    // Señal visual de qué personaje está seleccionado actualmente.
+    for (const item of results.querySelectorAll('.px-champ')) {
+      const active = normalized(item.querySelector('.px-champ__name')?.textContent) === normalized(entry.name);
+      item.classList.toggle('is-active', active);
+      item.setAttribute('aria-pressed', String(active));
+    }
+    return true;
   }
 
   async function openPicker() {
-    dialog.showModal();
-    search.focus();
+    if (!dialog.open) dialog.showModal();
+    mountEditorInSearch();
+    search.focus({ preventScroll: true });
     if (!catalog.length) {
-      meta.textContent = 'Cargando personajes de la biblioteca...';
-      showMessage('Buscando retratos', 'Se usa primero el catálogo del selector original y, si hace falta, el directorio del repositorio TEST.');
+      meta.textContent = 'Cargando biblioteca de campeones…';
+      showMessage('Buscando retratos', 'Se está cargando el catálogo del selector original.');
       await loadCatalog();
       if (!dialog.open) return;
       if (!catalog.length) {
-        meta.textContent = 'El selector original sigue disponible debajo.';
-        showMessage('No se pudo obtener un listado externo', 'Cierra esta ventana y usa «Personaje a elegir» en la web original. Tus assets y su motor se mantienen intactos.');
+        meta.textContent = 'Biblioteca no disponible';
+        showMessage('No se pudo cargar el catálogo', 'Puedes editar el personaje desde el campo «Personaje a elegir» de la ficha original.');
         return;
       }
     }
@@ -314,6 +355,14 @@
   $('px-change-champion').addEventListener('click', () => { void openPicker(); });
   $('px-picker-close').addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener('close', () => {
+    // Cuando se cierra el buscador se devuelve el editor a su lugar sin recrearlo.
+    restoreEditor();
+    if (document.querySelector('.px-main.is-editing')) {
+      const bar = $('px-editing-bar');
+      requestAnimationFrame(() => bar?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+  });
   search.addEventListener('input', () => {
     window.clearTimeout(queryDelay);
     queryDelay = window.setTimeout(renderList, 110);

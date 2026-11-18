@@ -372,3 +372,134 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .px-editing-bar__details strong { font-size: 18px; }
   .px-editing-bar__change { width: 100%; }
 }
+
+
+/* ============================================================== 
+   07. BÚSQUEDA + EDITOR REAL EN LA MISMA VENTANA
+   Reutiliza el #app original (no duplicamos canvas ni renderizador).
+   ============================================================== */
+.px-dialog {
+  width: min(1560px, calc(100vw - 30px));
+  max-width: min(1560px, calc(100vw - 30px));
+  max-height: min(94dvh, 1050px);
+}
+.px-dialog__workspace {
+  display: grid;
+  grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
+  min-height: 0;
+  flex: 1 1 auto;
+  border-top: 1px solid rgba(164,182,215,.10);
+  overflow: hidden;
+}
+.px-dialog__sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid #324059;
+}
+.px-dialog__meta {
+  flex: 0 0 auto;
+  padding: 13px 16px 8px;
+  margin: 0;
+}
+.px-dialog__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 12px 18px;
+}
+.px-champ {
+  display: grid;
+  grid-template-columns: 55px 1fr;
+  justify-items: start;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 12px;
+}
+.px-champ img { width: 55px; height: 60px; }
+.px-champ__placeholder { width: 55px; height: 60px; font-size: 24px; }
+.px-champ__name { text-align: left; font-size: 12px; }
+.px-champ.is-active {
+  border-color: #f2c46c;
+  background: linear-gradient(105deg, rgba(235,182,76,.17), #1c283b);
+  box-shadow: inset 3px 0 #f2c46c;
+}
+.px-dialog__studio {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 17px 20px 24px;
+  background: radial-gradient(ellipse at 0 0, rgba(224,163,61,.065), transparent 58%), #111a29;
+}
+.px-dialog__studio-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+.px-dialog__studio-title h3 {
+  margin: 4px 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: #f5f7fc;
+  letter-spacing: -.03em;
+}
+.px-dialog__studio-title p { margin: 0; color: #a8b7cd; font-size: 12px; }
+.px-dialog__live { color: #e8be70; font-size: 10px; font-weight: 800; white-space: nowrap; letter-spacing: .07em; }
+.px-dialog__app-host { min-width: 0; width: 100%; }
+.px-dialog__app-host #app {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 18px !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(242,196,108,.20) !important;
+}
+.px-dialog__app-host #preview { max-width: 100%; }
+.px-dialog__help { flex: 0 0 auto; padding: 9px 20px 12px; }
+
+@media (max-width: 1000px) {
+  .px-dialog__workspace { grid-template-columns: minmax(160px, 210px) minmax(0,1fr); }
+  .px-dialog__studio { padding: 12px; }
+  .px-dialog__app-host #app { padding: 12px !important; }
+}
+@media (max-width: 700px) {
+  .px-dialog { width: calc(100vw - 12px); max-width: calc(100vw - 12px); max-height: 96dvh; border-radius: 14px; }
+  .px-dialog__head { padding: 12px 13px 8px; }
+  .px-dialog__head h2 { font-size: 22px; }
+  .px-dialog__head p { font-size: 11px; }
+  .px-searchbox { margin: 7px 13px; }
+  .px-searchbox input { padding-block: 10px; }
+  .px-dialog__workspace { display: flex; flex-direction: column; overflow: auto; }
+  .px-dialog__sidebar { flex: 0 0 auto; border-right: 0; border-bottom: 1px solid #35425a; }
+  .px-dialog__meta { padding: 4px 13px; }
+  .px-dialog__list {
+    flex: 0 0 auto;
+    flex-direction: row;
+    padding: 6px 13px 10px;
+    max-height: 120px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .px-champ { grid-template-columns: 45px 1fr; min-width: 148px; max-width: 180px; min-height: 74px; gap: 7px; padding: 5px 8px; }
+  .px-champ img, .px-champ__placeholder { width: 45px; height: 56px; }
+  .px-champ__name { font-size: 11px; }
+  .px-dialog__studio { flex: 0 0 auto; overflow: visible; padding: 12px 9px; }
+  .px-dialog__studio-title h3 { font-size: 19px; }
+  .px-dialog__studio-title p { font-size: 11px; }
+  .px-dialog__live { display: none; }
+  .px-dialog__app-host #app { padding: 8px !important; }
+  .px-dialog__help { font-size: 10px; padding: 9px 13px 12px; }
+}

@@ -265,8 +265,10 @@ icon.onload = function () {
   ctx.strokeStyle = "black";
   ctx.fillStyle = "white";
 
-  const x = 411;
-  const y = 405;
+  // Centro visual del medallón (no el centro del PNG con alas).
+  // Equivale a left:81.3% / top:78.5% del preview de 500 × 500.
+  const x = 406.5;
+  const y = 392.5;
   const txt = getAscensionLevel();
 
   ctx.strokeText(txt, x, y);

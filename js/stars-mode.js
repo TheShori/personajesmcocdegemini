@@ -1,9 +1,13 @@
 /**
  * PORTRAYER / FICHA DE ESTRELLAS — TEST
  *
- * Renderer independiente que REUTILIZA las capas del motor original.
- * No sustituye los assets, el selector, los marcos, Vue ni el modo clásico.
- * Tamaño intrínseco 500x500. La exportación usa el mismo canvas que la vista.
+ * Renderer independiente que reutiliza los retratos/capas del motor original,
+ * pero compone una ficha alternativa inspirada en la referencia del usuario:
+ * - sin nombre/clase/potencia
+ * - banda inferior con estrellas tipo referencia
+ * - 7★ usa el marco morado original, NO el de ascensión+
+ * - duplicado => estrellas doradas / no duplicado => estrellas grises
+ * - exportación PNG transparente
  */
 (() => {
   'use strict';
@@ -19,7 +23,13 @@
     duped: el('px-stars-duped'), asc: el('px-stars-ascension'),
     level: el('px-stars-level'), background: el('px-stars-background')
   };
-  const state = { active: false, champion: '', assetImage: null, frameCache: new Map(), lastPortraitPresent: false };
+  const state = {
+    active: false,
+    champion: '',
+    assetImage: null,
+    frameCache: new Map(),
+    lastPortraitPresent: false
+  };
   const nativeValueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
 
   function findLabelControl(pattern, selector) {
@@ -64,7 +74,8 @@
   }
 
   function syncFrameToOriginal() {
-    // La rareza determina el marco por defecto. El selector manual lo puede sobreescribir.
+    // Se sigue actualizando el tier nativo, pero el render de la ficha de estrellas
+    // NO usa el frame canvas original para evitar el 7★ de ascensión+.
     changeNativeInput(nativeTierInput(), selectedFrameTier());
     scheduleDraw();
   }
@@ -91,9 +102,12 @@
     image.src = './assets/ascension.PNG';
   }
 
-  function frameFallback() {
-    const tier = selectedFrameTier();
-    const asset = tier === 7 ? './assets/champion-frame-7.png' : `./assets/champion-frame-${tier}.png`;
+  function frameAssetPath(tier) {
+    return `./assets/champion-frame-${tier}.png`;
+  }
+
+  function frameImage(tier) {
+    const asset = frameAssetPath(tier);
     if (state.frameCache.has(asset)) return state.frameCache.get(asset);
     const img = new Image();
     state.frameCache.set(asset, null);
@@ -103,7 +117,6 @@
     return null;
   }
 
-  // Fondo oscuro verde, parecido al ejemplo; también se puede exportar transparente.
   function drawBackground() {
     if (choices.background.value === 'transparent') return;
     const gradient = ctx.createLinearGradient(0, 0, 500, 500);
@@ -112,9 +125,7 @@
     gradient.addColorStop(1, '#05130d');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 500, 500);
-    for (const [x, y, r, alpha] of [
-      [70, 50, 225, .11], [430, 150, 190, .12], [240, 455, 260, .14]
-    ]) {
+    for (const [x, y, r, alpha] of [[70, 50, 225, .11], [430, 150, 190, .12], [240, 455, 260, .14]]) {
       const fog = ctx.createRadialGradient(x, y, 0, x, y, r);
       fog.addColorStop(0, `rgba(16,111,88,${alpha})`);
       fog.addColorStop(1, 'rgba(16,111,88,0)');
@@ -134,8 +145,6 @@
     try {
       const context = source.getContext('2d', { willReadFrequently: true });
       if (!context) return false;
-      // El contenido puede tener transparencias: revisamos varios puntos antes
-      // de decidir si hace falta el recurso original de respaldo.
       for (const [x, y] of [[250, 200], [200, 250], [300, 300], [400, 175], [150, 120]]) {
         const px = Math.min(source.width - 1, Math.round(x * source.width / 500));
         const py = Math.min(source.height - 1, Math.round(y * source.height / 500));
@@ -143,29 +152,27 @@
       }
       return false;
     } catch (_) {
-      return true; // No bloquear capas si el navegador restringe la lectura.
+      return true;
     }
   }
 
   function drawFrameAndPortrait() {
-    const frame = originalCanvas('frame');
     const portrait = originalCanvas('portrait');
-    const hasFrame = hasPixels(frame);
     const hasPortrait = hasPixels(portrait);
     state.lastPortraitPresent = hasPortrait;
+    const tier = selectedFrameTier();
+    const fallback = frameImage(tier);
+
     ctx.save();
-    // Eliminamos la placa clásica (nombre, clase y potencia), que se encuentra
-    // en la zona inferior; el busto y el marco siguen siendo los originales.
+    // Se recorta por encima de la banda, dejando que esta suba hasta tocar el retrato.
     ctx.beginPath();
-    ctx.rect(0, 0, 500, 348);
+    ctx.rect(0, 0, 500, 320);
     ctx.clip();
-    if (hasFrame) ctx.drawImage(frame, 0, 0, 500, 500);
-    else {
-      const fallback = frameFallback();
-      if (fallback) {
-        const x = selectedFrameTier() === 7 ? 74 : 78;
-        ctx.drawImage(fallback, x, 70);
-      }
+
+    // Marco SIEMPRE desde assets/champion-frame-X.png (7★ morado original).
+    if (fallback) {
+      const x = tier === 7 ? 74 : 78;
+      ctx.drawImage(fallback, x, 70);
     }
     if (hasPortrait) ctx.drawImage(portrait, 0, 0, 500, 500);
     ctx.restore();
@@ -185,7 +192,7 @@
     ctx.roundRect(x, y, w, h, r);
   }
 
-  function starShape(cx, cy, outer, inner = outer * .43) {
+  function starShape(cx, cy, outer, inner = outer * .46) {
     ctx.beginPath();
     for (let i = 0; i < 10; i++) {
       const radius = i % 2 === 0 ? outer : inner;
@@ -198,79 +205,86 @@
     ctx.closePath();
   }
 
-  function drawStar(cx, cy, radius, gold) {
+  function drawStar(cx, cy, radius, isGold) {
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.82)';
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetY = 4;
-    starShape(cx, cy, radius);
-    ctx.fillStyle = gold ? '#82400b' : '#536877';
+    ctx.shadowColor = 'rgba(0,0,0,.55)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 3;
+
+    // Base / reborde oscuro
+    starShape(cx, cy, radius + 0.6);
+    ctx.fillStyle = isGold ? '#7f3f0d' : '#55616d';
     ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.lineWidth = 2.4;
-    ctx.strokeStyle = gold ? '#723403' : '#293942';
-    ctx.stroke();
+
+    // Cuerpo principal
     const gradient = ctx.createLinearGradient(0, cy - radius, 0, cy + radius);
-    if (gold) {
-      gradient.addColorStop(0, '#fff4a0');
-      gradient.addColorStop(.26, '#f5b328');
-      gradient.addColorStop(.48, '#c66b10');
-      gradient.addColorStop(.62, '#ffbd3a');
-      gradient.addColorStop(1, '#8d430b');
+    if (isGold) {
+      gradient.addColorStop(0, '#fff1a5');
+      gradient.addColorStop(.20, '#ffcf48');
+      gradient.addColorStop(.48, '#ef9f1e');
+      gradient.addColorStop(.75, '#c96e0f');
+      gradient.addColorStop(1, '#7e3b09');
     } else {
-      gradient.addColorStop(0, '#e7f7ff');
-      gradient.addColorStop(.45, '#b1d5e7');
-      gradient.addColorStop(1, '#55798c');
+      gradient.addColorStop(0, '#eceff3');
+      gradient.addColorStop(.30, '#bec7cf');
+      gradient.addColorStop(.65, '#89939d');
+      gradient.addColorStop(1, '#616b75');
     }
-    starShape(cx, cy, radius - 2);
+    starShape(cx, cy, radius - 1.8);
     ctx.fillStyle = gradient;
     ctx.fill();
-    // Facetas claras para acercarse al aspecto metalizado de MCoC.
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - radius + 2);
-    ctx.lineTo(cx, cy - 2);
-    ctx.lineTo(cx - radius * .76, cy - radius * .23);
-    ctx.closePath();
-    ctx.fillStyle = gold ? 'rgba(255,245,184,.50)' : 'rgba(255,255,255,.43)';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - 2);
-    ctx.lineTo(cx + radius * .85, cy - radius * .23);
-    ctx.lineTo(cx + radius * .53, cy + radius * .71);
-    ctx.closePath();
-    ctx.fillStyle = gold ? 'rgba(148,54,0,.37)' : 'rgba(42,69,86,.32)';
-    ctx.fill();
+
+    // Faceta izquierda clara
+    starShape(cx, cy, radius - 1.8);
+    ctx.clip();
+    const leftHi = ctx.createLinearGradient(cx - radius, cy - radius, cx, cy + radius * .2);
+    leftHi.addColorStop(0, isGold ? 'rgba(255,255,220,.95)' : 'rgba(255,255,255,.88)');
+    leftHi.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = leftHi;
+    ctx.fillRect(cx - radius - 2, cy - radius - 2, radius + 4, radius * 1.8);
+
+    // Faceta derecha más oscura
+    const rightShade = ctx.createLinearGradient(cx + radius * .1, cy - radius * .2, cx + radius, cy + radius);
+    rightShade.addColorStop(0, 'rgba(0,0,0,0)');
+    rightShade.addColorStop(1, isGold ? 'rgba(101,41,0,.40)' : 'rgba(55,62,70,.42)');
+    ctx.fillStyle = rightShade;
+    ctx.fillRect(cx, cy - radius, radius + 4, radius * 2);
+
     ctx.restore();
   }
 
   function drawStarsPlaque() {
-    const x = 55, y = 332, w = 390, h = 111;
+    // Subida hasta tocar el retrato; ligera superposición para eliminar la línea negra.
+    const x = 54, y = 302, w = 392, h = 110;
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.82)';
-    ctx.shadowBlur = 16;
-    ctx.shadowOffsetY = 7;
+    ctx.shadowColor = 'rgba(0,0,0,.60)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 6;
     roundedRect(x, y, w, h, 5);
-    ctx.fillStyle = '#101112';
+    ctx.fillStyle = '#171717';
     ctx.fill();
     ctx.shadowColor = 'transparent';
     ctx.shadowOffsetY = 0;
     ctx.shadowBlur = 0;
-    roundedRect(x + 2, y + 2, w - 4, h - 4, 3);
+    roundedRect(x + 2, y + 2, w - 4, h - 4, 4);
     const bg = ctx.createLinearGradient(0, y, 0, y + h);
-    bg.addColorStop(0, '#353536');
-    bg.addColorStop(.72, '#333335');
+    bg.addColorStop(0, '#3a3a3c');
+    bg.addColorStop(.65, '#343436');
     bg.addColorStop(1, '#29292b');
     ctx.fillStyle = bg;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.10)';
+    ctx.strokeStyle = 'rgba(255,255,255,.12)';
     ctx.lineWidth = 1;
     ctx.stroke();
+
     const count = Math.max(1, Math.min(7, Number(choices.count.value) || 7));
-    const gap = count === 7 ? 47 : 48;
-    const start = 250 - (count - 1) * gap / 2;
-    for (let i = 0; i < count; i++) drawStar(start + i * gap, y + h / 2 + 3, 25, choices.duped.checked);
+    const gap = count >= 6 ? 42 : 46;
+    const radius = count >= 6 ? 22 : 24;
+    const start = 250 - ((count - 1) * gap / 2);
+    const gold = !!choices.duped.checked; // duplicado = doradas / no duplicado = grises
+    for (let i = 0; i < count; i++) {
+      drawStar(start + i * gap, y + h / 2 + 5, radius, gold);
+    }
     ctx.restore();
   }
 
@@ -312,7 +326,6 @@
   function scheduleDraw() {
     if (!state.active) return;
     requestAnimationFrame(draw);
-    // La capa de retrato y el marco pueden actualizarse tras una carga asíncrona.
     window.setTimeout(draw, 120);
     window.setTimeout(draw, 450);
   }
@@ -342,8 +355,13 @@
   }
 
   async function download() {
+    // La exportación debe salir SIN fondo, en PNG transparente.
+    const previousBg = choices.background.value;
+    choices.background.value = 'transparent';
     draw();
     if (!state.lastPortraitPresent) {
+      choices.background.value = previousBg;
+      draw();
       window.alert('El retrato del campeón todavía no se ha cargado. Elige un personaje o inténtalo de nuevo.');
       return;
     }
@@ -351,7 +369,11 @@
       .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-')
       .replace(/^-+|-+$/g, '').slice(0, 60);
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) return;
+    if (!blob) {
+      choices.background.value = previousBg;
+      draw();
+      return;
+    }
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.download = `mcoc-${filename}-${choices.count.value}estrellas.png`;
@@ -360,6 +382,9 @@
     anchor.click();
     anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
+    // Restaurar la vista previa al valor visible en el selector.
+    choices.background.value = previousBg;
+    draw();
   }
 
   el('px-tab-original').addEventListener('click', () => showMode('original'));
@@ -379,14 +404,14 @@
   choices.background.addEventListener('change', scheduleDraw);
 
   document.addEventListener('px:champion-selected', (event) => setChampionName(event.detail?.name));
-  // También detecta cambios realizados directamente en el selector original.
   el('app')?.addEventListener('input', (event) => {
     if (event.target === championInput()) setChampionName(event.target.value);
     if (event.target === nativeTierInput()) scheduleDraw();
   });
 
-  // El renderizador original dibuja en canvas asincrónicamente; un refresco ligero
-  // solo mientras se ve esta pestaña permite reflejar cada retrato al cargar.
+  // La exportación final debe ser transparente por defecto.
+  if (choices.background) choices.background.value = 'transparent';
+
   window.setInterval(() => { if (state.active && !document.hidden) draw(); }, 650);
   loadBadge();
 })();
